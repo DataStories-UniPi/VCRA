@@ -3,6 +3,7 @@ import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 
+import osmnx as ox
 from tqdm import tqdm
 from scipy.interpolate import interp1d
 from shapely.geometry import Point, LineString, shape
@@ -185,3 +186,83 @@ def dms2dec_prep(dms_str):
     
     return dms2dec_calc(sign, degree, minute, second)
 	
+
+def getGeoDataFrame_v2(df, coordinate_columns=['lon', 'lat'], crs={'init':'epsg:4326'}):
+	'''
+		Create a GeoDataFrame from a DataFrame in a much more generalized form.
+	'''
+	
+	df.loc[:, 'geom'] = np.nan
+	df.geom = df[coordinate_columns].apply(lambda x: Point(*x), axis=1)
+	
+	return gpd.GeoDataFrame(df, geometry='geom', crs=crs)
+
+
+def create_area_grid(spatial_area, crs={'init':'epsg:4326'}, quadrat_width=1000):
+    '''
+        Segment a spatial area into (an equally spaced) square grid
+        
+        Input:
+            * spatial_area: The area to segment
+            * quadrat_width: The squares' width
+            
+        Output:
+            * A GeoSeries containing the grid's squares
+            
+        Note: the unit of the quadrat_width is in accord to the CRS of the spatial area.
+    '''
+    # quadrat_width is in the units the geometry is in, so we'll do a tenth of a degree
+    geometry_cut = ox.utils_geo._quadrat_cut_geometry(spatial_area, quadrat_width=quadrat_width)
+    
+    grid_gdf = gpd.GeoDataFrame(list(geometry_cut), columns=['geom'], geometry='geom')
+    grid_gdf.crs = crs
+    
+    return grid_gdf
+
+
+def create_area_bounds(spatial_areas, epsg=2154, area_radius=2000):
+	'''
+	Given some Datapoints, create a circular bound of _area_radius_ kilometers.
+	'''
+	spatial_areas2 = spatial_areas.copy()
+	init_crs = spatial_areas2.crs
+	# We convert to a CRS where the distance between two points is returned in meters (e.g. EPSG-2154 (France), EPSG-3310 (North America)),
+	# so the buffer function creates a circle with radius _area_radius_ meters from the center point (i.e the port's location point)
+	spatial_areas2.geometry = spatial_areas2.geometry.to_crs(epsg=epsg).buffer(area_radius).to_crs(init_crs)
+	# After we create the spatial_areas bounding circle we convert back to its previous CRS.
+	return spatial_areas2
+	
+
+def classify_area_proximity(trajectories, spatial_areas, o_id_column='id', ts_column='t_msec', area_radius=2000, area_epsg=2154):
+	# create the spatial index (r-tree) of the trajectories's data points
+	print ('Creating Spatial Index...')
+	sindex = trajectories.sindex
+
+	# find the points that intersect with each subpolygon and add them to _points_within_geometry_ DataFrame
+	points_within_geometry = []
+	
+	if (spatial_areas.geometry.type == 'Point').all():
+		spatial_areas = create_area_bounds(spatial_areas, area_radius=area_radius, epsg=area_epsg)
+	
+	print ('Classifying Spatial Proximity...')
+	for airport_id, poly in spatial_areas.geometry.items():
+		possible_matches_index = list(sindex.intersection(poly.bounds))
+		possible_matches = trajectories.iloc[possible_matches_index]
+		precise_matches = possible_matches[possible_matches.intersects(poly)]
+		
+		if (len(precise_matches) != 0):
+			trajectories.loc[precise_matches.index, 'area_id'] = airport_id
+			points_within_geometry.append(trajectories.loc[precise_matches.index])
+		
+	print ('Gathering Results...')
+	points_within_geometry = pd.concat(points_within_geometry)
+	points_within_geometry = points_within_geometry.drop_duplicates(subset=[o_id_column, ts_column])
+
+	# When we create the _traj_id_ column, we label each record with 0, 
+	# if it's outside the port's radius and -1 if it's inside the port's radius.
+	trajectories.loc[trajectories.index.isin(points_within_geometry.index), 'traj_id'] = -1
+	trajectories.loc[~trajectories.index.isin(points_within_geometry.index), 'traj_id'] = 0
+	trajectories.loc[:,'label'] = trajectories['traj_id'].values
+	
+	return trajectories
+
