@@ -1,5 +1,5 @@
 # Vessel Collision Risk Assessment and Forecasting (VCRA/F)
-### Official Python implementation of the MLP-VCRA model from the paper "Collision Risk Assessment and Forecasting on Maritime Data"
+### Official Python implementation of the VCRA/F model from the paper "Collision Risk Assessment and Forecasting on Maritime Data"
 
 
 # Installation 
@@ -13,7 +13,7 @@ pip install −r requirements.txt
 conda install --file requirements.txt
 ```
 
-To reproduce the experimental study of the paper (VCRA/F vs. related work), please install the ```scikit-rvm``` (https://github.com/JamesRitchie/scikit-rvm) library.
+To reproduce the experimental study of the paper (VCRA/F vs. related work), please install the ```sklearn-rvm``` library (sklearn-rvm.readthedocs.io).
 
 
 # Usage
