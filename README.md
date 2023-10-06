@@ -42,6 +42,11 @@ Nikos Pelekis; Department of Statistics & Insurance Science, University of Pirae
 Yannis Theodoridis; Department of Informatics, University of Piraeus
 
 
+# Citation
+If you use VCRA/F in your project, we would appreciate citations to the following paper:
+
+> Andreas Tritsarolis, Brian Murray, Nikos Pelekis, and Yannis Theodoridis. 2023. Collision Risk Assessment and Forecasting on Maritime Data (Industrial Paper). In proceedings of the 31st ACM International Conference on Advances in Geographic Information Systems (SIGSPATIAL). https://doi.org/10.1145/3589132.3625573
+
 
 # Acknowledgement
 This work was supported in part by EU Horizon 2020 R\&I Programme under Grant Agreement No 957237 (project VesselAI, https://vessel-ai.eu).
